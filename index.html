@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Student Chatbot</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f5f7fa;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    header {
+      background: #283593;
+      color: white;
+      padding: 1rem;
+      text-align: center;
+      font-size: 1.4rem;
+      font-weight: bold;
+      position: relative;
+    }
+
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .message {
+      max-width: 70%;
+      padding: 0.75rem 1rem;
+      border-radius: 16px;
+      line-height: 1.4;
+      font-size: 1rem;
+      word-wrap: break-word;
+    }
+
+    .bot {
+      background: #e0e0e0;
+      align-self: flex-start;
+      border-top-left-radius: 0;
+    }
+
+    .user {
+      background: #3949ab;
+      color: white;
+      align-self: flex-end;
+      border-top-right-radius: 0;
+    }
+
+    .chat-image {
+      max-width: 100%;
+      border-radius: 16px;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .download-btn {
+      margin-top: 6px;
+      display: inline-block;
+      font-size: 0.9rem;
+      font-weight: bold;
+      color: #3949ab;
+      text-decoration: none;
+    }
+
+    .input-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 1rem;
+      background: white;
+      border-top: 1px solid #ccc;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .input-bar input[type="text"] {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border-radius: 24px;
+      border: 1px solid #ccc;
+      outline: none;
+      font-size: 1rem;
+    }
+
+    .input-bar button {
+      background: #3949ab;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.3s ease;
+    }
+
+    .input-bar button:hover {
+      background: #303f9f;
+    }
+
+    .plus-button {
+      background: #3949ab;
+      color: white;
+      font-size: 1.3rem;
+      font-weight: bold;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.3s ease;
+    }
+
+    .plus-button:hover {
+      background: #303f9f;
+    }
+
+    #file-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>Buddy AI
+  <button id="voice-toggle" style="
+    position: absolute;
+    top: 10px;
+    left: 20px;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    color: white;
+    cursor: pointer;
+  ">🔊</button>
+</header>
+
+<div class="chat-container" id="chat"></div>
+
+<form class="input-bar" id="chat-form">
+  <div class="input-row">
+    <label for="file-input" class="plus-button">＋</label>
+    <input type="file" id="file-input" />
+    <input type="text" id="user-input" placeholder="Ask me anything..." autocomplete="off" required />
+    <button type="submit">Send</button>
+  </div>
+</form>
+
+<script>
+  const chatForm = document.getElementById('chat-form');
+  const userInput = document.getElementById('user-input');
+  const chatContainer = document.getElementById('chat');
+  const fileInput = document.getElementById('file-input');
+  const voiceToggle = document.getElementById('voice-toggle');
+
+  let isVoiceEnabled = true;
+  voiceToggle.addEventListener('click', () => {
+    isVoiceEnabled = !isVoiceEnabled;
+    voiceToggle.textContent = isVoiceEnabled ? '🔊' : '🔇';
+    if (!isVoiceEnabled && speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+    }
+  });
+
+  let availableVoices = [];
+
+  function loadVoices() {
+    availableVoices = speechSynthesis.getVoices();
+  }
+
+  if (typeof speechSynthesis !== 'undefined') {
+    loadVoices();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }
+
+  function speakFullSentence(text) {
+    if (!isVoiceEnabled) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 1;
+    const voice = availableVoices.find(v => v.lang === 'en-US') || availableVoices[0];
+    if (voice) utterance.voice = voice;
+    speechSynthesis.speak(utterance);
+  }
+
+  function typeBotMessage(text) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'message bot';
+    chatContainer.appendChild(msgDiv);
+    let index = 0;
+    function typeNext() {
+      if (index <= text.length) {
+        msgDiv.textContent = text.substring(0, index++);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        setTimeout(typeNext, 25);
+      }
+    }
+    typeNext();
+    speakFullSentence(text);
+  }
+
+  function appendMessage(content, type) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `message ${type}`;
+    msgDiv.textContent = content;
+    chatContainer.appendChild(msgDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  function appendImage(base64Image) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'message bot';
+    const img = document.createElement('img');
+    img.src = `data:image/png;base64,${base64Image}`;
+    img.className = 'chat-image';
+    const downloadLink = document.createElement('a');
+    downloadLink.href = img.src;
+    downloadLink.download = `generated_image_${Date.now()}.png`;
+    downloadLink.textContent = '⬇️ Download';
+    downloadLink.className = 'download-btn';
+    wrapper.appendChild(img);
+    wrapper.appendChild(downloadLink);
+    chatContainer.appendChild(wrapper);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  chatForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const message = userInput.value.trim();
+  if (!message) return;
+  appendMessage(message, 'user');
+  userInput.value = '';
+
+  try {
+    const res = await fetch('/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+
+    const data = await res.json();
+
+    // 🟡 Handle file download link
+    if (data.reply && data.reply.includes('/download/')) {
+      const downloadUrlMatch = data.reply.match(/\/download\/[^"]+/);
+      if (downloadUrlMatch) {
+        const downloadUrl = downloadUrlMatch[0];
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+        wrapper.innerHTML = `⬇️ <a href="${downloadUrl}" class="download-btn" download>Click here to download your file</a>`;
+        chatContainer.appendChild(wrapper);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }
+
+    // 🟢 Handle text reply
+    else if (data.reply) {
+      typeBotMessage(data.reply);
+    } else {
+      typeBotMessage("Hmm, I couldn't generate a response.");
+    }
+
+    // 🔵 Handle base64 image (AI-generated image)
+    if (data.image) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'message bot';
+
+      const img = document.createElement('img');
+      img.src = `data:image/png;base64,${data.image}`;
+      img.alt = "Generated image";
+      img.className = 'chat-image';
+      wrapper.appendChild(img);
+
+      const downloadLink = document.createElement('a');
+      downloadLink.href = img.src;
+      downloadLink.download = 'generated_image.png';
+      downloadLink.className = 'download-btn';
+      downloadLink.textContent = '⬇️ Download';
+      wrapper.appendChild(downloadLink);
+
+      chatContainer.appendChild(wrapper);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // 🟣 Handle crawled image URLs
+    if (data.image_urls && Array.isArray(data.image_urls)) {
+      data.image_urls.forEach((url, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message bot';
+
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `Crawled image ${index + 1}`;
+        img.className = 'chat-image';
+        wrapper.appendChild(img);
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = `/proxy_image?url=${encodeURIComponent(url)}`;  // 🛠️ Add route in backend
+        downloadLink.download = '';
+        downloadLink.className = 'download-btn';
+        downloadLink.textContent = '⬇️ Download';
+        wrapper.appendChild(downloadLink);
+
+        chatContainer.appendChild(wrapper);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      });
+    }
+
+  } catch (error) {
+    typeBotMessage("❌ Something went wrong. Please try again later.");
+    console.error("Fetch error:", error);
+  }
+});
+
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    appendMessage(`📤 Uploading file: ${file.name}`, 'bot');
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.success) {
+        appendMessage(`✅ File uploaded successfully: ${file.name}`, 'bot');
+        userInput.value = `read uploaded file`;
+      } else {
+        appendMessage(`❌ Upload failed: ${data.error}`, 'bot');
+      }
+    } catch (error) {
+      appendMessage(`❌ Error during file upload: ${error}`, 'bot');
+    }
+  });
+</script>
+
+</body>
+</html>
